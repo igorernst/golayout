@@ -69,7 +69,7 @@ type Specimen interface {
 	Eval(input string) float64
 }
 
-type Specimen struct {
+type specimen struct {
 	// permutation of some sort?
 }
 
@@ -78,7 +78,7 @@ type Key struct {
 }
 
 type Layout40 struct {
-	
+
 }
 
 func main() {
