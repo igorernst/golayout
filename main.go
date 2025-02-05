@@ -49,15 +49,28 @@ var (
 		'-': {},
 		'_': {},
 		'=': {},
-		'+': {}
+		'+': {},
 	}
 )
 
 // key to position transform
 // or to a vertex on a graph
 
-func textFilter(text string) []runes {
-	
+func textFilter(text string, charset map[rune]struct{}) []rune {
+	// filters out the symbols that are not in the given charset
+	// probably can work without filtering, cuz it created another array.
+	// better just skip irrelevant chars, there are not a lot of those.
+	// TODO actual filtering
+	runes := []rune(text)
+	return runes
+}
+
+type Specimen interface {
+	Eval(input string) float64
+}
+
+type Specimen struct {
+	// permutation of some sort?
 }
 
 type Key struct {
@@ -71,4 +84,3 @@ type Layout40 struct {
 func main() {
 	fmt.Println(L40Charset)
 }
-
