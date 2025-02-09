@@ -203,8 +203,11 @@ func (s *specimen) Score(input string) float64 {
 		score float64 = 0
 	)
 	for _, r := range input {
+		p,b := s.mapping[r];
+		if !b {
+			continue
+		}
 		var penalty float64 = 0.0
-		p := s.mapping[r]
 		newColInc := p.col > prev.col
 		newRowInc := p.row > prev.row
 		sameRow := prev.row == p.row
