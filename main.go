@@ -9,11 +9,6 @@ import (
 )
 
 const (
-	scissorsPenalty = 2.0
-	rowRedirectPenalty = 2.0
-	colRedirectPenalty = 0.5
-	sameColumnPenalty = 1.0
-	pinkyOffHomeRowPenalty = 0.25
 	PopulationSize uint = 50
 	HallOfFameSize uint = 10
 )
@@ -196,6 +191,14 @@ var blockedEdges map[int]bool = map[int]bool{}
 // a + b >> 8 + c >> 16 + d >> 24  which is an int
 
 func (s *specimen) Score(input string) float64 {
+	const (
+		homeRowBonus = 0.5
+		scissorsPenalty = 2.0
+		rowRedirectPenalty = 2.0
+		colRedirectPenalty = 0.5
+		sameColumnPenalty = 1.0
+		pinkyOffHomeRowPenalty = 0.5
+	)
 	var (
 		prev Point
 		colInc bool
@@ -216,6 +219,9 @@ func (s *specimen) Score(input string) float64 {
 		colRedirect := sameHand && newColInc != colInc
 		rowRedirect := sameHand && newRowInc != rowInc
 		scissors := sameHand && pairEq(p.row,prev.row,1,3)
+		if p.HomeRow() {
+			score += homeRowBonus
+		}
 		if sameColumn && !sameRow {
 			penalty += sameColumnPenalty
 		}
