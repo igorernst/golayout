@@ -211,7 +211,13 @@ func OneStep(generation Generation) Generation {
 */
 
 type Layout40 struct {
+}
 
+func (s *specimen) Mutate1(charset []rune) {
+	n := len(charset)
+	i := rand.Intn(n)
+	j := rand.Intn(n)
+	s.mapping[charset[i]], s.mapping[charset[j]] = s.mapping[charset[j]], s.mapping[charset[i]]
 }
 
 func crossover_test() {
