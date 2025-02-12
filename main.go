@@ -13,7 +13,6 @@ const (
 	HallOfFameSize uint = 10
 )
 
-
 // key to position transform
 // or to a vertex on a graph
 
@@ -32,7 +31,7 @@ type Specimen interface {
 }
 
 type Point struct {
-	row,col uint8
+	row, col uint8
 }
 
 func (s *Point) Left() bool {
@@ -47,13 +46,13 @@ func (p *Point) HomeRow() bool {
 	return p.row == 2
 }
 
-func dist2(p1,p2 Point) float64 {
+func dist2(p1, p2 Point) float64 {
 	x := float64(p1.col - p2.col)
 	y := float64(p1.row - p2.row)
 	return x*x + y*y
 }
 
-func dist(p1,p2 Point) float64 {
+func dist(p1, p2 Point) float64 {
 	return math.Sqrt(dist2(p1, p2))
 }
 
@@ -61,28 +60,28 @@ type specimen struct {
 	mapping map[rune]Point
 }
 
-
 var blockedEdges map[int]bool = map[int]bool{}
+
 // if else is (a,b) to (c,d) we write into
 // a + b >> 8 + c >> 16 + d >> 24  which is an int
 
 func (s *specimen) Score(input string) float64 {
 	const (
-		homeRowBonus = 0.5
-		scissorsPenalty = 2.0
-		rowRedirectPenalty = 2.0
-		colRedirectPenalty = 0.5
-		sameColumnPenalty = 1.0
+		homeRowBonus           = 0.5
+		scissorsPenalty        = 2.0
+		rowRedirectPenalty     = 2.0
+		colRedirectPenalty     = 0.5
+		sameColumnPenalty      = 1.0
 		pinkyOffHomeRowPenalty = 0.5
 	)
 	var (
-		prev Point
+		prev   Point
 		colInc bool
 		rowInc bool
-		score float64 = 0
+		score  float64 = 0
 	)
 	for _, r := range input {
-		p,b := s.mapping[r];
+		p, b := s.mapping[r]
 		if !b {
 			continue
 		}
@@ -94,7 +93,7 @@ func (s *specimen) Score(input string) float64 {
 		sameHand := prev.Left() && p.Left() || prev.Right() && p.Right()
 		colRedirect := sameHand && newColInc != colInc
 		rowRedirect := sameHand && newRowInc != rowInc
-		scissors := sameHand && pairEq(p.row,prev.row,1,3)
+		scissors := sameHand && pairEq(p.row, prev.row, 1, 3)
 		if p.HomeRow() {
 			score += homeRowBonus
 		}
@@ -118,18 +117,18 @@ func (s *specimen) Score(input string) float64 {
 	return score
 }
 
-func pairEq(a,b,c,d uint8) bool {
-	return a==c && b==d || a==d && b==c
+func pairEq(a, b, c, d uint8) bool {
+	return a == c && b == d || a == d && b == c
 }
 
 func (s *specimen) Crossover(s2 *specimen) specimen {
 	var (
 		usedPoints = make(map[Point]bool)
-		sp = make(map[rune]Point)
+		sp         = make(map[rune]Point)
 	)
 	toFill := 0
 	// take left from s
-	for k,v := range s.mapping {
+	for k, v := range s.mapping {
 		toFill++
 		if v.Left() {
 			sp[k] = v
@@ -138,29 +137,29 @@ func (s *specimen) Crossover(s2 *specimen) specimen {
 		}
 	}
 	// take right from s2, not taking any duplicates
-	for k,v := range s2.mapping {
+	for k, v := range s2.mapping {
 		if v.Left() {
 			continue
 		}
-		if _,b := sp[k]; !b {
+		if _, b := sp[k]; !b {
 			sp[k] = v
 			usedPoints[v] = true
 			toFill--
 		}
 	}
 	// finding letters/keys that are not assigned, filling them randomly
-	runesNotUsed := make([]rune,toFill)
-	pointsNotUsed := make([]Point,toFill)
+	runesNotUsed := make([]rune, toFill)
+	pointsNotUsed := make([]Point, toFill)
 	i := 0
 	for k := range s.mapping {
-		if _,b := sp[k]; !b {
+		if _, b := sp[k]; !b {
 			runesNotUsed[i] = k
 			i++
 		}
 	}
 	j := 0
-	for _,v := range s.mapping {
-		if _,b := usedPoints[v]; !b {
+	for _, v := range s.mapping {
+		if _, b := usedPoints[v]; !b {
 			pointsNotUsed[j] = v
 			j++
 		}
