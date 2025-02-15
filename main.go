@@ -46,10 +46,20 @@ type genome struct {
 	charset *[]rune
 }
 
-var blockedEdges map[int]bool = map[int]bool{}
-
-// if else is (a,b) to (c,d) we write into
-// a + b >> 8 + c >> 16 + d >> 24  which is an int
+func (s *genome) PrettyPrint() {
+	var (
+		ar = new([12][3]rune)
+	)
+	for k, p := range s.mapping {
+		ar[p.col-1][p.row-1] = k
+	}
+	for row := 1; row <= 3; row++ {
+		for col := 1; col <= 13-row; col++ {
+			fmt.Printf("%c ", ar[col-1][row-1])
+		}
+		fmt.Println()
+	}
+}
 
 func (s *genome) Score(input string) float64 {
 	const (
