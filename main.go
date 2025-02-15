@@ -220,8 +220,8 @@ func Extend(s, h []instance) error {
 		s[i] = h[i-int(HallOfFameSize)]
 	}
 	for i := filled; i < len(s); i++ {
-		mutateOrCrossover := rand.Intn(2)
-		if mutateOrCrossover > 0 {
+		mutateOrCrossover := rand.Intn(2) // TODO: make a parameter/constant
+		if mutateOrCrossover == 0 {
 			a := rand.Intn(k)
 			b := rand.Intn(k)
 			s[i] = instance{
