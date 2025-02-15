@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-func crossover_test(t *testing.T) {
+func TestCrossover(t *testing.T) {
 	var (
 		qwerty = genome{
 			mapping: Qwerty,
@@ -21,7 +21,7 @@ func crossover_test(t *testing.T) {
 	}
 }
 
-func mutate1_test(t *testing.T) {
+func TestMutate1(t *testing.T) {
 	var (
 		qwerty = genome{
 			mapping: Qwerty,
@@ -29,10 +29,9 @@ func mutate1_test(t *testing.T) {
 		}
 	)
 	qwerty.Mutate1()
-	t.SkipNow()
 }
 
-func score_test(t *testing.T) {
+func TestScore(t *testing.T) {
 	var (
 		qwerty = genome{
 			mapping: Qwerty,
