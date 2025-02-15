@@ -247,6 +247,7 @@ func (s *Generation) UpdateScores(input string) {
 		go func(k int) {
 			inst := s.population[k]
 			inst.score = inst.Score(input)
+			s.population[k] = inst
 			wg.Done()
 		}(i)
 	}
@@ -254,7 +255,7 @@ func (s *Generation) UpdateScores(input string) {
 }
 
 func OneStep(generation Generation, input string) Generation {
-	generation.UpdateScores(input)                              /// async here
+	generation.UpdateScores(input)
 	tops := TakeBest(generation.population)                     // basically sort by score and ignore everything > top
 	err := Extend(generation.population, generation.hallOfFame) // crossover and mutate
 	if err != nil {
