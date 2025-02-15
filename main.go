@@ -292,11 +292,34 @@ func crossover_test() {
 			mapping: Nerps,
 			charset: &StandardCharset,
 		}
-		s = "hello from the testing string"
 	)
 	s1 := qwerty.Crossover(&nerps)
-	fmt.Println(qwerty.mapping, "\n", nerps.mapping, "\n", s1.mapping)
-	fmt.Println(qwerty.Score(s), nerps.Score(s), s1.Score(s))
+	qwerty.PrettyPrint()
+	nerps.PrettyPrint()
+	s1.PrettyPrint()
+}
+
+func mutate1_test() {
+	var (
+		qwerty = genome{
+			mapping: Qwerty,
+			charset: &StandardCharset,
+		}
+	)
+	qwerty.PrettyPrint()
+	qwerty.Mutate1()
+	qwerty.PrettyPrint()
+}
+
+func score_test() {
+	var (
+		qwerty = genome{
+			mapping: Qwerty,
+			charset: &StandardCharset,
+		}
+		s = "hello from the test string"
+	)
+	fmt.Println(qwerty.Score(s))
 }
 
 func main() {
