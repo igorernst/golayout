@@ -5,30 +5,15 @@ import (
 	"log"
 	"math"
 	"math/rand"
-	//"golayout/constants"
+	"sort"
+	"sync"
 )
 
 const (
 	PopulationSize uint = 50
-	HallOfFameSize uint = 10
+	BestPartSize        = PopulationSize / 5
+	HallOfFameSize uint = PopulationSize / 5
 )
-
-// key to position transform
-// or to a vertex on a graph
-
-func textFilter(text string, charset map[rune]struct{}) []rune {
-	// filters out the symbols that are not in the given charset
-	// probably can work without filtering, cuz it created another array.
-	// better just skip irrelevant chars, there are not a lot of those.
-	// TODO actual filtering
-	runes := []rune(text)
-	return runes
-}
-
-type Specimen interface {
-	Score(input string) float64
-	Crossover(*Specimen) Specimen
-}
 
 type Point struct {
 	row, col uint8
@@ -56,8 +41,9 @@ func dist(p1, p2 Point) float64 {
 	return math.Sqrt(dist2(p1, p2))
 }
 
-type specimen struct {
+type genome struct {
 	mapping map[rune]Point
+	charset *[]rune
 }
 
 var blockedEdges map[int]bool = map[int]bool{}
@@ -65,7 +51,7 @@ var blockedEdges map[int]bool = map[int]bool{}
 // if else is (a,b) to (c,d) we write into
 // a + b >> 8 + c >> 16 + d >> 24  which is an int
 
-func (s *specimen) Score(input string) float64 {
+func (s *genome) Score(input string) float64 {
 	const (
 		homeRowBonus           = 0.5
 		scissorsPenalty        = 2.0
@@ -121,7 +107,7 @@ func pairEq(a, b, c, d uint8) bool {
 	return a == c && b == d || a == d && b == c
 }
 
-func (s *specimen) Crossover(s2 *specimen) specimen {
+func (s *genome) Crossover(s2 *genome) genome {
 	var (
 		usedPoints = make(map[Point]bool)
 		sp         = make(map[rune]Point)
@@ -179,40 +165,106 @@ func (s *specimen) Crossover(s2 *specimen) specimen {
 	if len(sp) != len(s.mapping) {
 		panic("The output length is not equal to the input")
 	}
-	return specimen{
+	return genome{
 		mapping: sp,
+		charset: s.charset,
 	}
 }
 
+type instance struct {
+	genome
+	score float64
+}
+
 type Generation struct {
-	population []Specimen
-	hallOfFame []Specimen
+	population []instance
+	hallOfFame []instance
 }
 
 func SeedGeneration() Generation {
 	// TODO: fill this
 	return Generation{
-		population: []Specimen{},
-		hallOfFame: []Specimen{},
+		population: []instance{},
+		hallOfFame: []instance{},
 	}
 }
 
-/*
-func OneStep(generation Generation) Generation {
-	g := Extend(generation) // crossover and mutate
-	population := TakeBest(g)
-	hallOfFame := TakeHOF(generation.hallOfFame, g)
+// TODO: show top 10 for each epoch (animated)
+
+func TakeBest(s []instance) []instance {
+	n := len(s)
+	k := n / 5 // 20%
+	sort.Slice(s, func(i, j int) bool {
+		return s[i].score < s[j].score
+	})
+	if len(s[0:k]) != k {
+		log.Panicln("wrong length of best", k)
+	}
+	return s[0:k]
+}
+
+func Extend(s, h []instance) error {
+	k := int(BestPartSize + HallOfFameSize)
+	filled := min((len(s)), k)
+	for i := int(BestPartSize); i < filled; i++ {
+		s[i] = h[i-int(HallOfFameSize)]
+	}
+	for i := filled; i < len(s); i++ {
+		mutateOrCrossover := rand.Intn(2)
+		if mutateOrCrossover > 0 {
+			a := rand.Intn(k)
+			b := rand.Intn(k)
+			s[i] = instance{
+				genome: s[a].Crossover(&s[b].genome),
+			}
+		} else {
+			a := rand.Intn(k)
+			s[i] = s[a]
+			s[i].Mutate1()
+		}
+	}
+	return nil
+	// TODO: should we take hof in here?
+}
+
+func (s *Generation) UpdateScores(input string) {
+	var (
+		wg sync.WaitGroup
+	)
+	n := len(s.population)
+	wg.Add(n)
+	for i := 0; i < n; i++ {
+		go func(k int) {
+			inst := s.population[k]
+			inst.score = inst.Score(input)
+			wg.Done()
+		}(i)
+	}
+	wg.Wait()
+}
+
+func OneStep(generation Generation, input string) Generation {
+	generation.UpdateScores(input)                              /// async here
+	tops := TakeBest(generation.population)                     // basically sort by score and ignore everything > top
+	err := Extend(generation.population, generation.hallOfFame) // crossover and mutate
+	if err != nil {
+		log.Print("Error: extend, ", tops, generation.hallOfFame)
+	}
+	// TODO: implement TakeHOF / inplace variant
+	hallOfFame := generation.hallOfFame // TakeHOF(generation)
+	// TODO: make the function inplace
 	return Generation{
-		population: population,
+		population: generation.population,
 		hallOfFame: hallOfFame,
 	}
-        }
-*/
+}
 
 type Layout40 struct {
 }
 
-func (s *specimen) Mutate1(charset []rune) {
+func (s *genome) Mutate1() {
+	// inplace elementary mutation
+	charset := *s.charset
 	n := len(charset)
 	i := rand.Intn(n)
 	j := rand.Intn(n)
@@ -221,11 +273,13 @@ func (s *specimen) Mutate1(charset []rune) {
 
 func crossover_test() {
 	var (
-		qwerty = specimen{
+		qwerty = genome{
 			mapping: Qwerty,
+			charset: &StandardCharset,
 		}
-		nerps = specimen{
+		nerps = genome{
 			mapping: Nerps,
+			charset: &StandardCharset,
 		}
 		s = "hello from the testing string"
 	)
