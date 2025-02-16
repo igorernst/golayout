@@ -246,17 +246,13 @@ func (s *Generation) UpdateScores(input string) {
 	wg.Add(n + m)
 	for i := 0; i < n; i++ {
 		go func(k int) {
-			inst := s.population[k]
-			inst.score = inst.Score(input)
-			s.population[k] = inst
+			s.population[k].score = s.population[k].Score(input)
 			wg.Done()
 		}(i)
 	}
 	for i := 0; i < m; i++ {
 		go func(k int) {
-			inst := s.hallOfFame[k]
-			inst.score = inst.Score(input)
-			s.hallOfFame[k] = inst
+			s.hallOfFame[k].score = s.hallOfFame[k].Score(input)
 			wg.Done()
 		}(i)
 	}
