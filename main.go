@@ -242,12 +242,21 @@ func (s *Generation) UpdateScores(input string) {
 		wg sync.WaitGroup
 	)
 	n := len(s.population)
-	wg.Add(n)
+	m := len(s.hallOfFame)
+	wg.Add(n + m)
 	for i := 0; i < n; i++ {
 		go func(k int) {
 			inst := s.population[k]
 			inst.score = inst.Score(input)
 			s.population[k] = inst
+			wg.Done()
+		}(i)
+	}
+	for i := 0; i < m; i++ {
+		go func(k int) {
+			inst := s.hallOfFame[k]
+			inst.score = inst.Score(input)
+			s.hallOfFame[k] = inst
 			wg.Done()
 		}(i)
 	}
