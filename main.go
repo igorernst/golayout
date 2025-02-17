@@ -10,9 +10,11 @@ import (
 )
 
 const (
-	PopulationSize uint = 50
-	BestPartSize        = PopulationSize / 5
-	HallOfFameSize uint = PopulationSize / 5
+	PopulationSize    uint = 50
+	BestPartSize           = PopulationSize / 5
+	HallOfFameSize    uint = PopulationSize / 5
+	MutationFrequency      = 10 // mutataion would happen n-1 time out of n
+	// TODO: make the constants configurable using a struct
 )
 
 type Point struct {
@@ -215,22 +217,29 @@ func TakeBest(s []instance) []instance {
 
 func Extend(s, h []instance) error {
 	k := int(BestPartSize + HallOfFameSize)
-	filled := min((len(s)), k)
+	filled := min(len(s), k)
 	for i := int(BestPartSize); i < filled; i++ {
 		s[i] = h[i-int(HallOfFameSize)]
 	}
 	for i := filled; i < len(s); i++ {
-		mutateOrCrossover := rand.Intn(2) // TODO: make a parameter/constant
+		mutateOrCrossover := rand.Intn(MutationFrequency)
 		if mutateOrCrossover == 0 {
 			a := rand.Intn(k)
 			b := rand.Intn(k)
 			s[i] = instance{
-				genome: s[a].Crossover(&s[b].genome),
+				genome: s[a].Crossover(&s[b].genome), // TODO: change to overwriting rather than making a new entity
 			}
 		} else {
 			a := rand.Intn(k)
-			s[i] = s[a]
-			s[i].Mutate1()
+			g := genome{
+				mapping: make(map[rune]Point), // TODO: same
+				charset: s[a].charset,
+			}
+			for k, v := range s[a].mapping {
+				g.mapping[k] = v
+			}
+			g.Mutate1()
+			s[i] = instance{genome: g}
 		}
 	}
 	return nil
@@ -266,13 +275,31 @@ func OneStep(generation Generation, input string) Generation {
 	if err != nil {
 		log.Print("Error: extend, ", tops, generation.hallOfFame)
 	}
-	// TODO: implement TakeHOF / inplace variant
-	hallOfFame := generation.hallOfFame // TakeHOF(generation)
-	// TODO: make the function inplace
-	return Generation{
-		population: generation.population,
-		hallOfFame: hallOfFame,
+	// update hallOfFame with the top of the population
+	sort.Slice(generation.hallOfFame, func(i, j int) bool {
+		return generation.hallOfFame[i].score < generation.hallOfFame[j].score
+	})
+	l := 0
+	r := 0
+	comp := func(l, r int) bool {
+		return generation.hallOfFame[r].score > generation.population[l].score
 	}
+	for l+r < int(HallOfFameSize) {
+		if comp(l, r) {
+			r++
+			continue
+		}
+		// save r-th to the bottom
+		for k, v := range generation.hallOfFame[r].mapping {
+			generation.hallOfFame[int(HallOfFameSize)-l-1].mapping[k] = v
+		}
+		// move population[l] to r-th place
+		for k, v := range generation.population[l].mapping {
+			generation.hallOfFame[r].mapping[k] = v
+		}
+		l++
+	}
+	return generation
 }
 
 type Layout40 struct {
