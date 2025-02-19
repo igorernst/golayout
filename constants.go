@@ -1,8 +1,19 @@
 package main
 
 var (
+	Qwerty = genome{
+		mapping: qwerty,
+		charset: &StandardCharset,
+	}
+	Nerps = genome{
+		mapping: nerps,
+		charset: &StandardCharset,
+	}
+)
+
+var (
 	StandardCharset = []rune{'q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '[', ']', 'a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';', '\'', 'z', 'x', 'c', 'v', 'b', 'n', 'm', ',', '.', '/'}
-	Qwerty          = map[rune]Point{
+	qwerty          = map[rune]Point{
 		'q':  Point{1, 1},
 		'w':  Point{1, 2},
 		'e':  Point{1, 3},
@@ -37,7 +48,7 @@ var (
 		'.':  Point{3, 9},
 		'/':  Point{3, 10},
 	}
-	Nerps = map[rune]Point{
+	nerps = map[rune]Point{
 		'x':  Point{1, 1},
 		'l':  Point{1, 2},
 		'd':  Point{1, 3},

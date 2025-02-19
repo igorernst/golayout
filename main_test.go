@@ -5,39 +5,20 @@ import (
 )
 
 func TestCrossover(t *testing.T) {
-	var (
-		qwerty = genome{
-			mapping: Qwerty,
-			charset: &StandardCharset,
-		}
-		nerps = genome{
-			mapping: Nerps,
-			charset: &StandardCharset,
-		}
-	)
-	s1 := qwerty.Crossover(&nerps)
-	if len(s1.mapping) != len(qwerty.mapping) {
+	s1 := Qwerty.Crossover(&Nerps)
+	if len(s1.mapping) != len(Qwerty.mapping) {
 		t.Fail()
 	}
+	s1.Mutate1()
 }
 
 func TestMutate1(t *testing.T) {
-	var (
-		qwerty = genome{
-			mapping: Qwerty,
-			charset: &StandardCharset,
-		}
-	)
-	qwerty.Mutate1()
+	Qwerty.Mutate1()
 }
 
 func TestScore(t *testing.T) {
 	var (
-		qwerty = genome{
-			mapping: Qwerty,
-			charset: &StandardCharset,
-		}
 		s = "hello from the test string"
 	)
-	qwerty.Score(s)
+	Qwerty.Score(s)
 }
