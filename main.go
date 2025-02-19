@@ -195,9 +195,57 @@ type Generation struct {
 
 func SeedGeneration() Generation {
 	// TODO: fill this
+	s := make([]instance, PopulationSize)
+	for i := 0; i < int(PopulationSize); i++ {
+		s[i].mapping = make(map[rune]Point)
+		s[i].charset = &StandardCharset
+	}
+	h := make([]instance, HallOfFameSize)
+	for i := 0; i < int(HallOfFameSize); i++ {
+		h[i].mapping = make(map[rune]Point)
+		h[i].charset = &StandardCharset
+	}
+	for k, v := range Qwerty.mapping {
+		s[0].mapping[k] = v
+	}
+	for k, v := range Nerps.mapping {
+		s[1].mapping[k] = v
+	}
+	m := 2
+	for i := 0; i < m; i++ {
+		for k, v := range s[i].mapping {
+			h[i].mapping[k] = v
+		}
+	}
+	k := int(m)
+	filled := min(len(s), k)
+	for i := filled; i < len(s); i++ {
+		mutateOrCrossover := rand.Intn(MutationFrequency)
+		if mutateOrCrossover == 0 {
+			a := rand.Intn(k)
+			b := rand.Intn(k)
+			s[i] = instance{
+				genome: s[a].Crossover(&s[b].genome), // TODO: change to overwriting rather than making a new entity
+			}
+		} else {
+			a := rand.Intn(k)
+			if s[a].charset == nil {
+				fmt.Println("wrong element", a, s[a])
+			}
+			g := genome{
+				mapping: make(map[rune]Point), // TODO: same
+				charset: s[a].charset,
+			}
+			for k, v := range s[a].mapping {
+				g.mapping[k] = v
+			}
+			g.Mutate1()
+			s[i] = instance{genome: g}
+		}
+	}
 	return Generation{
-		population: []instance{},
-		hallOfFame: []instance{},
+		population: s,
+		hallOfFame: h,
 	}
 }
 
@@ -207,7 +255,7 @@ func TakeBest(s []instance) []instance {
 	n := len(s)
 	k := n / 5 // 20%
 	sort.Slice(s, func(i, j int) bool {
-		return s[i].score < s[j].score
+		return s[i].score > s[j].score
 	})
 	if len(s[0:k]) != k {
 		log.Panicln("wrong length of best", k)
@@ -219,7 +267,10 @@ func Extend(s, h []instance) error {
 	k := int(BestPartSize + HallOfFameSize)
 	filled := min(len(s), k)
 	for i := int(BestPartSize); i < filled; i++ {
-		s[i] = h[i-int(HallOfFameSize)]
+		for k, v := range h[i-int(HallOfFameSize)].mapping {
+			s[i].mapping[k] = v
+		}
+		s[i].charset = h[i-int(HallOfFameSize)].charset
 	}
 	for i := filled; i < len(s); i++ {
 		mutateOrCrossover := rand.Intn(MutationFrequency)
@@ -231,6 +282,9 @@ func Extend(s, h []instance) error {
 			}
 		} else {
 			a := rand.Intn(k)
+			if s[a].charset == nil {
+				fmt.Println("Extend: wrong element", a, s[a].genome)
+			}
 			g := genome{
 				mapping: make(map[rune]Point), // TODO: same
 				charset: s[a].charset,
@@ -277,7 +331,7 @@ func OneStep(generation Generation, input string) Generation {
 	}
 	// update hallOfFame with the top of the population
 	sort.Slice(generation.hallOfFame, func(i, j int) bool {
-		return generation.hallOfFame[i].score < generation.hallOfFame[j].score
+		return generation.hallOfFame[i].score > generation.hallOfFame[j].score
 	})
 	l := 0
 	r := 0
@@ -307,6 +361,9 @@ type Layout40 struct {
 
 func (s *genome) Mutate1() {
 	// inplace elementary mutation
+	if s.charset == nil {
+		s.PrettyPrint()
+	}
 	charset := *s.charset
 	n := len(charset)
 	i := rand.Intn(n)
