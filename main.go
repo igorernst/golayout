@@ -5,6 +5,7 @@ import (
 	"log"
 	"math"
 	"math/rand"
+	"os"
 	"sort"
 	"sync"
 )
@@ -57,7 +58,7 @@ func (s *genome) PrettyPrint() {
 	}
 	for row := 1; row <= 3; row++ {
 		for col := 1; col <= 13-row; col++ {
-			fmt.Printf("%c ", ar[col-1][row-1])
+			fmt.Printf("%c", ar[col-1][row-1])
 		}
 		fmt.Println()
 	}
@@ -69,7 +70,7 @@ func (s *genome) Score(input string) float64 {
 		scissorsPenalty        = 2.0
 		rowRedirectPenalty     = 2.0
 		colRedirectPenalty     = 0.5
-		sameColumnPenalty      = 1.0
+		sameColumnPenalty      = 2.0
 		pinkyOffHomeRowPenalty = 0.5
 	)
 	var (
@@ -92,6 +93,7 @@ func (s *genome) Score(input string) float64 {
 		colRedirect := sameHand && newColInc != colInc
 		rowRedirect := sameHand && newRowInc != rowInc
 		scissors := sameHand && pairEq(p.row, prev.row, 1, 3)
+		pinkyOffHomeRow := !p.HomeRow() && (p.col == 1 || p.col >= 10)
 		if p.HomeRow() {
 			score += homeRowBonus
 		}
@@ -106,6 +108,9 @@ func (s *genome) Score(input string) float64 {
 		}
 		if scissors {
 			penalty += scissorsPenalty
+		}
+		if pinkyOffHomeRow {
+			penalty += pinkyOffHomeRowPenalty
 		}
 		rowInc = newRowInc
 		colInc = newColInc
@@ -212,8 +217,8 @@ func SeedGeneration() Generation {
 		s[1].mapping[k] = v
 	}
 	m := 2
-	for i := 0; i < m; i++ {
-		for k, v := range s[i].mapping {
+	for i := 0; i < int(HallOfFameSize); i++ {
+		for k, v := range s[min(i, m-1)].mapping {
 			h[i].mapping[k] = v
 		}
 	}
@@ -243,10 +248,11 @@ func SeedGeneration() Generation {
 			s[i] = instance{genome: g}
 		}
 	}
-	return Generation{
+	g := Generation{
 		population: s,
 		hallOfFame: h,
 	}
+	return g
 }
 
 // TODO: show top 10 for each epoch (animated)
@@ -323,12 +329,12 @@ func (s *Generation) UpdateScores(input string) {
 }
 
 func OneStep(generation Generation, input string) Generation {
-	generation.UpdateScores(input)
 	tops := TakeBest(generation.population)                     // basically sort by score and ignore everything > top
 	err := Extend(generation.population, generation.hallOfFame) // crossover and mutate
 	if err != nil {
 		log.Print("Error: extend, ", tops, generation.hallOfFame)
 	}
+	generation.UpdateScores(input)
 	// update hallOfFame with the top of the population
 	sort.Slice(generation.hallOfFame, func(i, j int) bool {
 		return generation.hallOfFame[i].score > generation.hallOfFame[j].score
@@ -372,4 +378,38 @@ func (s *genome) Mutate1() {
 }
 
 func main() {
+	// TODO: read file
+	bytes, err := os.ReadFile("text/Alice.txt")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	input := string(bytes)
+	seed := SeedGeneration()
+	seed.UpdateScores(input[0:1000])
+	/*for i, v := range seed.population {
+		fmt.Println(i)
+		v.genome.PrettyPrint()
+	}*/
+	gen := seed
+	l := len(input)
+	fmt.Println("input length: ", l)
+	for i := 0; i < 200; i++ {
+		a := i * 1000
+		b := a + 10000
+		if b < l {
+			gen = OneStep(gen, input[a:b])
+		}
+	}
+	for i, v := range gen.population {
+		fmt.Println(i, ": ", v.score)
+		v.genome.PrettyPrint()
+	}
+	fmt.Println("Hall Of Fame:")
+	for i, v := range gen.hallOfFame {
+		fmt.Println(i, ": ", v.score)
+		v.genome.PrettyPrint()
+	}
+	// TODO: Hall of fame is not updated properly
+	// TODO: Make the scope update in the end? Makes sense
 }
