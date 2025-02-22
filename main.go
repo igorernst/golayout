@@ -374,6 +374,9 @@ func OneStep(generation Generation, input string) Generation {
 		}
 		l++
 	}
+	sort.Slice(generation.hallOfFame, func(i, j int) bool {
+		return generation.hallOfFame[i].score > generation.hallOfFame[j].score
+	})
 	return generation
 }
 
