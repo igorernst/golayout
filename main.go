@@ -34,6 +34,21 @@ func (p *Point) HomeRow() bool {
 	return p.row == 2
 }
 
+func (p *Point) Finger() uint8 {
+	switch {
+	case p.col < 5:
+		return p.col
+	case p.col == 5:
+		return 4
+	case p.col == 6:
+		return 7
+	case p.col <= 10:
+		return p.col
+	default:
+		return 10
+	}
+}
+
 func dist2(p1, p2 Point) float64 {
 	x := float64(p1.col - p2.col)
 	y := float64(p1.row - p2.row)
@@ -70,7 +85,7 @@ func (s *genome) Score(input string) float64 {
 		scissorsPenalty        = 2.0
 		rowRedirectPenalty     = 2.0
 		colRedirectPenalty     = 0.5
-		sameColumnPenalty      = 2.0
+		sameFingerPenalty      = 2.0
 		pinkyOffHomeRowPenalty = 0.5
 	)
 	var (
@@ -88,17 +103,17 @@ func (s *genome) Score(input string) float64 {
 		newColInc := p.col > prev.col
 		newRowInc := p.row > prev.row
 		sameRow := prev.row == p.row
-		sameColumn := prev.col == p.col
+		sameFinger := prev.Finger() == p.Finger()
 		sameHand := prev.Left() && p.Left() || prev.Right() && p.Right()
 		colRedirect := sameHand && newColInc != colInc
 		rowRedirect := sameHand && newRowInc != rowInc
 		scissors := sameHand && pairEq(p.row, prev.row, 1, 3)
-		pinkyOffHomeRow := !p.HomeRow() && (p.col == 1 || p.col >= 10)
+		pinkyOffHomeRow := !p.HomeRow() && (p.Finger() == 1 || p.Finger() == 10)
 		if p.HomeRow() {
 			score += homeRowBonus
 		}
-		if sameColumn && !sameRow {
-			penalty += sameColumnPenalty
+		if sameFinger && !sameRow {
+			penalty += sameFingerPenalty
 		}
 		if colRedirect {
 			penalty += colRedirectPenalty
