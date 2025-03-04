@@ -62,6 +62,28 @@ func dist(p1, p2 Point) float64 {
 type genome struct {
 	mapping map[rune]Point
 	charset *[]rune
+	hash    uint64
+}
+
+func (s *genome) Hash() {
+	var (
+		hash uint64 = 0
+		m    uint64 = 1
+	)
+	keys := make([]rune, 0, len(s.mapping))
+	for k, _ := range s.mapping {
+		keys = append(keys, k)
+	}
+	sort.Slice(keys, func(i int, j int) bool {
+		return keys[i] > keys[j]
+	})
+	for _, k := range keys {
+		v := s.mapping[k]
+		hash += uint64(v.col+3) + uint64(v.row+6)*27
+		hash *= m
+		m *= 3
+	}
+	s.hash = hash
 }
 
 func (s *genome) PrettyPrint() {
@@ -81,7 +103,7 @@ func (s *genome) PrettyPrint() {
 
 func (s *genome) Score(input string) float64 {
 	const (
-		homeRowBonus           = 0.5
+		homeRowBonus           = 0.065
 		scissorsPenalty        = 2.0
 		rowRedirectPenalty     = 2.0
 		colRedirectPenalty     = 0.5
@@ -89,10 +111,11 @@ func (s *genome) Score(input string) float64 {
 		pinkyOffHomeRowPenalty = 0.5
 	)
 	var (
-		prev   Point
-		colInc bool
-		rowInc bool
-		score  float64 = 0
+		prev        Point
+		colInc      bool
+		rowInc      bool
+		score       float64 = 0
+		fingerCount [11]int
 	)
 	for _, r := range input {
 		p, b := s.mapping[r]
@@ -102,7 +125,7 @@ func (s *genome) Score(input string) float64 {
 		var penalty float64 = 0.0
 		newColInc := p.col > prev.col
 		newRowInc := p.row > prev.row
-		sameRow := prev.row == p.row
+		//sameRow := prev.row == p.row
 		sameFinger := prev.Finger() == p.Finger()
 		sameHand := prev.Left() && p.Left() || prev.Right() && p.Right()
 		colRedirect := sameHand && newColInc != colInc
@@ -112,7 +135,7 @@ func (s *genome) Score(input string) float64 {
 		if p.HomeRow() {
 			score += homeRowBonus
 		}
-		if sameFinger && !sameRow {
+		if sameFinger && p != prev {
 			penalty += sameFingerPenalty
 		}
 		if colRedirect {
@@ -127,6 +150,7 @@ func (s *genome) Score(input string) float64 {
 		if pinkyOffHomeRow {
 			penalty += pinkyOffHomeRowPenalty
 		}
+		fingerCount[p.Finger()]++
 		rowInc = newRowInc
 		colInc = newColInc
 		prev = p
@@ -139,10 +163,10 @@ func pairEq(a, b, c, d uint8) bool {
 	return a == c && b == d || a == d && b == c
 }
 
-func (s *genome) Crossover(s2 *genome) genome {
+func (s *genome) Crossover(s2 *genome, sp map[rune]Point) genome {
 	var (
 		usedPoints = make(map[Point]bool)
-		sp         = make(map[rune]Point)
+		usedKeys   = make(map[rune]bool)
 	)
 	toFill := 0
 	// take left from s
@@ -150,6 +174,7 @@ func (s *genome) Crossover(s2 *genome) genome {
 		toFill++
 		if v.Left() {
 			sp[k] = v
+			usedKeys[k] = true
 			usedPoints[v] = true
 			toFill--
 		}
@@ -159,9 +184,10 @@ func (s *genome) Crossover(s2 *genome) genome {
 		if v.Left() {
 			continue
 		}
-		if _, b := sp[k]; !b {
+		if _, b := usedKeys[k]; !b {
 			sp[k] = v
 			usedPoints[v] = true
+			usedKeys[k] = true
 			toFill--
 		}
 	}
@@ -170,7 +196,7 @@ func (s *genome) Crossover(s2 *genome) genome {
 	pointsNotUsed := make([]Point, toFill)
 	i := 0
 	for k := range s.mapping {
-		if _, b := sp[k]; !b {
+		if _, b := usedKeys[k]; !b {
 			runesNotUsed[i] = k
 			i++
 		}
@@ -214,8 +240,8 @@ type Generation struct {
 }
 
 func SeedGeneration() Generation {
-	// TODO: fill this
 	s := make([]instance, PopulationSize)
+	hashes := make(map[uint64]struct{})
 	for i := 0; i < int(PopulationSize); i++ {
 		s[i].mapping = make(map[rune]Point)
 		s[i].charset = &StandardCharset
@@ -232,35 +258,51 @@ func SeedGeneration() Generation {
 		s[1].mapping[k] = v
 	}
 	m := 2
+	for i := 0; i < m; i++ {
+		s[i].Hash()
+		hashes[s[i].hash] = struct{}{}
+	}
 	for i := 0; i < int(HallOfFameSize); i++ {
 		for k, v := range s[min(i, m-1)].mapping {
 			h[i].mapping[k] = v
 		}
+		h[i].Hash()
 	}
 	k := int(m)
 	filled := min(len(s), k)
 	for i := filled; i < len(s); i++ {
-		mutateOrCrossover := rand.Intn(MutationFrequency)
-		if mutateOrCrossover == 0 {
-			a := rand.Intn(k)
-			b := rand.Intn(k)
-			s[i] = instance{
-				genome: s[a].Crossover(&s[b].genome), // TODO: change to overwriting rather than making a new entity
+		for {
+			mutateOrCrossover := rand.Intn(MutationFrequency)
+			if mutateOrCrossover == 0 {
+				a := rand.Intn(k)
+				b := rand.Intn(k)
+				s[a].Crossover(&s[b].genome, s[i].mapping)
+				s[i].Hash()
+				if _, b := hashes[s[i].hash]; !b {
+					hashes[s[i].hash] = struct{}{}
+					break
+				}
+
+			} else {
+				a := rand.Intn(k)
+				if s[a].charset == nil {
+					fmt.Println("wrong element", a, s[a])
+				}
+				g := genome{
+					mapping: make(map[rune]Point), // TODO: same
+					charset: s[a].charset,
+				}
+				for k, v := range s[a].mapping {
+					g.mapping[k] = v
+				}
+				g.Mutate1()
+				s[i] = instance{genome: g}
+				s[i].Hash()
+				if _, b := hashes[s[i].hash]; !b {
+					hashes[s[i].hash] = struct{}{}
+					break
+				}
 			}
-		} else {
-			a := rand.Intn(k)
-			if s[a].charset == nil {
-				fmt.Println("wrong element", a, s[a])
-			}
-			g := genome{
-				mapping: make(map[rune]Point), // TODO: same
-				charset: s[a].charset,
-			}
-			for k, v := range s[a].mapping {
-				g.mapping[k] = v
-			}
-			g.Mutate1()
-			s[i] = instance{genome: g}
 		}
 	}
 	g := Generation{
@@ -285,6 +327,7 @@ func TakeBest(s []instance) []instance {
 }
 
 func Extend(s, h []instance) error {
+	hashes := make(map[uint64]struct{})
 	k := int(BestPartSize + HallOfFameSize)
 	filled := min(len(s), k)
 	for i := int(BestPartSize); i < filled; i++ {
@@ -292,29 +335,41 @@ func Extend(s, h []instance) error {
 			s[i].mapping[k] = v
 		}
 		s[i].charset = h[i-int(HallOfFameSize)].charset
+		s[i].Hash()
+		hashes[s[i].hash] = struct{}{}
 	}
 	for i := filled; i < len(s); i++ {
-		mutateOrCrossover := rand.Intn(MutationFrequency)
-		if mutateOrCrossover == 0 {
-			a := rand.Intn(k)
-			b := rand.Intn(k)
-			s[i] = instance{
-				genome: s[a].Crossover(&s[b].genome), // TODO: change to overwriting rather than making a new entity
+		for {
+			mutateOrCrossover := rand.Intn(MutationFrequency)
+			if mutateOrCrossover == 0 {
+
+				a := rand.Intn(k)
+				b := rand.Intn(k)
+				s[i] = instance{
+					genome: s[a].Crossover(&s[b].genome, s[i].mapping),
+				}
+				s[i].Hash()
+				// if hash is used try once more
+				if _, b := hashes[s[i].hash]; !b {
+					hashes[s[i].hash] = struct{}{}
+					break
+				}
+
+			} else {
+				a := rand.Intn(k)
+				if s[a].charset == nil {
+					fmt.Println("Extend: wrong element", a, s[a].genome)
+				}
+				for k, v := range s[a].mapping {
+					s[i].mapping[k] = v
+				}
+				s[i].genome.Mutate1()
+				s[i].Hash()
+				if _, b := hashes[s[i].hash]; !b {
+					hashes[s[i].hash] = struct{}{}
+					break
+				}
 			}
-		} else {
-			a := rand.Intn(k)
-			if s[a].charset == nil {
-				fmt.Println("Extend: wrong element", a, s[a].genome)
-			}
-			g := genome{
-				mapping: make(map[rune]Point), // TODO: same
-				charset: s[a].charset,
-			}
-			for k, v := range s[a].mapping {
-				g.mapping[k] = v
-			}
-			g.Mutate1()
-			s[i] = instance{genome: g}
 		}
 	}
 	return nil
@@ -331,12 +386,14 @@ func (s *Generation) UpdateScores(input string) {
 	for i := 0; i < n; i++ {
 		go func(k int) {
 			s.population[k].score = s.population[k].Score(input)
+			s.population[k].Hash()
 			wg.Done()
 		}(i)
 	}
 	for i := 0; i < m; i++ {
 		go func(k int) {
 			s.hallOfFame[k].score = s.hallOfFame[k].Score(input)
+			s.hallOfFame[k].Hash()
 			wg.Done()
 		}(i)
 	}
@@ -351,28 +408,45 @@ func OneStep(generation Generation, input string) Generation {
 	}
 	generation.UpdateScores(input)
 	// update hallOfFame with the top of the population
+	hashes := make(map[uint64]struct{})
 	sort.Slice(generation.hallOfFame, func(i, j int) bool {
 		return generation.hallOfFame[i].score > generation.hallOfFame[j].score
 	})
+	for i := 0; i < int(HallOfFameSize); i++ {
+		hashes[generation.hallOfFame[i].hash] = struct{}{}
+	}
 	l := 0
 	r := 0
 	comp := func(l, r int) bool {
 		return generation.hallOfFame[r].score > generation.population[l].score
 	}
-	for l+r < int(HallOfFameSize) {
+	c := 0
+	for c < int(HallOfFameSize) {
 		if comp(l, r) {
 			r++
+			c++
 			continue
 		}
-		// save r-th to the bottom
-		for k, v := range generation.hallOfFame[r].mapping {
-			generation.hallOfFame[int(HallOfFameSize)-l-1].mapping[k] = v
+		if _, b := hashes[generation.population[l].hash]; b {
+			l++
+			// check next from the left side
+			continue
 		}
+		hashes[generation.population[l].hash] = struct{}{}
+		// save r-th to the bottom
+		generation.hallOfFame[int(HallOfFameSize)-c-1].score = generation.hallOfFame[r].score
+		for k, v := range generation.hallOfFame[r].mapping {
+			generation.hallOfFame[int(HallOfFameSize)-c-1].mapping[k] = v
+		}
+		generation.hallOfFame[int(HallOfFameSize)-c-1].Hash()
 		// move population[l] to r-th place
+		generation.hallOfFame[r].score = generation.population[l].score
 		for k, v := range generation.population[l].mapping {
 			generation.hallOfFame[r].mapping[k] = v
 		}
+		generation.hallOfFame[r].Hash()
 		l++
+		c++
 	}
 	sort.Slice(generation.hallOfFame, func(i, j int) bool {
 		return generation.hallOfFame[i].score > generation.hallOfFame[j].score
@@ -412,22 +486,29 @@ func main() {
 	gen := seed
 	l := len(input)
 	fmt.Println("input length: ", l)
-	for i := 0; i < 200; i++ {
-		a := i * 1000
-		b := a + 10000
-		if b < l {
-			gen = OneStep(gen, input[a:b])
-		}
+	// for i := 0; i < 2000; i++ {
+	// 	a := (i % 300) * 500
+	// 	b := a + 5000
+	// 	if b < l {
+	// 		gen = OneStep(gen, input[a:b])
+	// 	} else {
+	// 		fmt.Printf("Generations passed: %d\n", i)
+	// 		break
+	// 	}
+	// }
+	for i := 0; i < 100; i++ {
+		gen = OneStep(gen, input)
 	}
-	for i, v := range gen.population {
-		fmt.Println(i, ": ", v.score)
-		v.genome.PrettyPrint()
-	}
+
+	//for i, v := range gen.population {
+	//	fmt.Println(i, ": ", v.score, ", hash:", v.hash)
+	//	v.genome.PrettyPrint()
+	//}
 	fmt.Println("Hall Of Fame:")
 	for i, v := range gen.hallOfFame {
-		fmt.Println(i, ": ", v.score)
+		fmt.Println(i, ": ", v.score, ", hash:", v.hash)
 		v.genome.PrettyPrint()
 	}
-	// TODO: Hall of fame is not updated properly
 	// TODO: Make the scope update in the end? Makes sense
+	// TODO: improve scoring model
 }
