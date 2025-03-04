@@ -8,7 +8,7 @@ import (
 )
 
 type genome struct {
-	mapping map[rune]Point
+	mapping map[rune]Key
 	charset *[]rune
 	hash    uint64
 }
@@ -59,7 +59,7 @@ func (s *genome) Score(input string) float64 {
 		pinkyOffHomeRowPenalty = 0.5
 	)
 	var (
-		prev        Point
+		prev        Key
 		colInc      bool
 		rowInc      bool
 		score       float64 = 0
@@ -107,9 +107,9 @@ func (s *genome) Score(input string) float64 {
 	return score
 }
 
-func (s *genome) Crossover(s2 *genome, sp map[rune]Point) genome {
+func (s *genome) Crossover(s2 *genome, sp map[rune]Key) genome {
 	var (
-		usedPoints = make(map[Point]bool)
+		usedPoints = make(map[Key]bool)
 		usedKeys   = make(map[rune]bool)
 	)
 	toFill := 0
@@ -137,7 +137,7 @@ func (s *genome) Crossover(s2 *genome, sp map[rune]Point) genome {
 	}
 	// finding letters/keys that are not assigned, filling them randomly
 	runesNotUsed := make([]rune, toFill)
-	pointsNotUsed := make([]Point, toFill)
+	pointsNotUsed := make([]Key, toFill)
 	i := 0
 	for k := range s.mapping {
 		if _, b := usedKeys[k]; !b {

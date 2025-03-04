@@ -6,7 +6,7 @@ import (
 
 func TestCrossover(t *testing.T) {
 	g := genome{
-		mapping: make(map[rune]Point),
+		mapping: make(map[rune]Key),
 		charset: Qwerty.charset,
 	}
 	s1 := Qwerty.Crossover(&Nerps, g.mapping)
