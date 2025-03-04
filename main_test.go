@@ -5,7 +5,11 @@ import (
 )
 
 func TestCrossover(t *testing.T) {
-	s1 := Qwerty.Crossover(&Nerps)
+	g := genome{
+		mapping: make(map[rune]Point),
+		charset: Qwerty.charset,
+	}
+	s1 := Qwerty.Crossover(&Nerps, g.mapping)
 	if len(s1.mapping) != len(Qwerty.mapping) {
 		t.Fail()
 	}
